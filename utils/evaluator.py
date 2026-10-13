@@ -3,7 +3,44 @@ import os
 import numpy as np
 import torch
 import matplotlib.pyplot as plt
-from argoverse.evaluation.eval_forecasting import get_displacement_errors_and_miss_rate
+
+LOW_PROB_THRESHOLD_FOR_METRICS = 0.05
+
+
+def get_displacement_errors_and_miss_rate(forecasted_trajectories, gt_trajectories, max_guesses, horizon,
+                                          miss_threshold, forecasted_probabilities=None):
+    """minADE / minFDE / MR / brier-minFDE as in argoverse-api's ``eval_forecasting`` (MIT license).
+
+    Ported here because argoverse-api (Argoverse 1) no longer installs (it depends on the defunct ``sklearn``
+    package). Only the metrics this evaluator reports are computed.
+    """
+    min_ade, min_fde, n_misses, brier_min_fde = [], [], [], []
+    for k, gt in gt_trajectories.items():
+        max_num_traj = min(max_guesses, len(forecasted_trajectories[k]))
+        if forecasted_probabilities is not None:
+            sorted_idx = np.argsort([-x for x in forecasted_probabilities[k]], kind="stable")
+            pruned_probabilities = [forecasted_probabilities[k][t] for t in sorted_idx[:max_num_traj]]
+            prob_sum = sum(pruned_probabilities)
+            pruned_probabilities = [p / prob_sum for p in pruned_probabilities]
+        else:
+            sorted_idx = np.arange(len(forecasted_trajectories[k]))
+        pruned_trajectories = [forecasted_trajectories[k][t] for t in sorted_idx[:max_num_traj]]
+
+        fdes = [float(np.linalg.norm(traj[horizon - 1] - gt[horizon - 1])) for traj in pruned_trajectories]
+        min_idx = int(np.argmin(fdes))  # first minimum, like the original strict '<' scan
+        curr_min_fde = fdes[min_idx]
+        curr_min_ade = float(np.linalg.norm(pruned_trajectories[min_idx][:horizon] - gt[:horizon], axis=-1).mean())
+        min_ade.append(curr_min_ade)
+        min_fde.append(curr_min_fde)
+        n_misses.append(curr_min_fde > miss_threshold)
+        if forecasted_probabilities is not None:
+            brier_min_fde.append((1 - pruned_probabilities[min_idx]) ** 2 + curr_min_fde)
+
+    results = {"minADE": sum(min_ade) / len(min_ade), "minFDE": sum(min_fde) / len(min_fde),
+               "MR": sum(n_misses) / len(n_misses)}
+    if forecasted_probabilities is not None:
+        results["brier-minFDE"] = sum(brier_min_fde) / len(brier_min_fde)
+    return results
 
 
 class TrajPredictionEvaluator():

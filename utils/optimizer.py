@@ -20,7 +20,7 @@ class PolylineLR(_LRScheduler):
         self.milestones = milestones
         self.values = values
         self.n_intervals = len(self.milestones) - 1
-        super(PolylineLR, self).__init__(optimizer, last_epoch, verbose)
+        super(PolylineLR, self).__init__(optimizer, last_epoch)  # torch>=2.7 dropped `verbose`
 
     def get_lr(self):
         if not self._get_lr_called_within_step:
@@ -49,7 +49,7 @@ class CosineAnnealingWithWarmupLR(_LRScheduler):
         self.eta_min = eta_min
         self.T_warmup = T_warmup
         self.init_lr = optimizer.param_groups[0]['lr']
-        super(CosineAnnealingWithWarmupLR, self).__init__(optimizer, last_epoch, verbose)
+        super(CosineAnnealingWithWarmupLR, self).__init__(optimizer, last_epoch)  # torch>=2.7 dropped `verbose`
 
     def get_lr(self):
         if not self._get_lr_called_within_step:

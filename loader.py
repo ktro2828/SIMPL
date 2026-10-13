@@ -37,7 +37,8 @@ class Loader:
         self.resume = True
         if not model_path.endswith(".tar"):
             assert False, "Model path error - '{}'".format(model_path)
-        self.ckpt = torch.load(model_path, map_location=lambda storage, loc: storage)
+        # torch>=2.6 defaults to weights_only=True, which rejects these checkpoints. Only load checkpoints you trust.
+        self.ckpt = torch.load(model_path, map_location=lambda storage, loc: storage, weights_only=False)
 
     def load(self):
         # dataset
